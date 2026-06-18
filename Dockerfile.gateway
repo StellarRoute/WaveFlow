@@ -1,0 +1,17 @@
+# Multi-stage Docker image for the WaveFlow GitHub webhook gateway service.
+FROM rust:1.83-bookworm AS builder
+WORKDIR /app
+COPY Cargo.toml rust-toolchain.toml ./
+COPY contracts ./contracts
+COPY crates ./crates
+COPY migrations ./migrations
+RUN cargo build --release -p waveflow-gateway
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /app/target/release/waveflow-gateway /usr/local/bin/waveflow-gateway
+COPY migrations /app/migrations
+ENV RUST_LOG=info
+EXPOSE 8080
+CMD ["waveflow-gateway"]

@@ -1,0 +1,13 @@
+{
+  "action": "closed",
+  "number": 42,
+  "pull_request": {
+    "merged": true,
+    "user": { "login": "alice" },
+    "base": { "ref": "main" }
+  },
+  "repository": {
+    "full_name": "StellarRoute/WaveFlow",
+    "default_branch": "main"
+  }
+}

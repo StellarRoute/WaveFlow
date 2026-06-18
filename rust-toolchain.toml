@@ -1,0 +1,4 @@
+# Pins stable Rust for reproducible Soroban and workspace builds.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

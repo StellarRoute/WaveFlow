@@ -1,0 +1,31 @@
+# REST API service for WaveFlow program and payout read paths with admin auth.
+[package]
+name = "waveflow-api"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "waveflow-api"
+path = "src/main.rs"
+
+[dependencies]
+waveflow-shared = { path = "../shared" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+http-body-util.workspace = true
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+http-body-util.workspace = true

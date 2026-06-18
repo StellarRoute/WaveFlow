@@ -1,0 +1,15 @@
+# Shared library crate for WaveFlow types, errors, and configuration.
+[package]
+name = "waveflow-shared"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

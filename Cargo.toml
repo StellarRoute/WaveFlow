@@ -1,0 +1,48 @@
+# Root Cargo workspace manifest for WaveFlow monorepo.
+[workspace]
+members = [
+    "contracts/waveflow-escrow",
+    "crates/shared",
+    "crates/gateway",
+    "crates/api",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["WaveFlow Contributors"]
+repository = "https://github.com/StellarRoute/WaveFlow"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "limit"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-native-tls",
+    "postgres",
+    "chrono",
+    "uuid",
+    "migrate",
+] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+subtle = "2.5"
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+http-body-util = "0.1"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"

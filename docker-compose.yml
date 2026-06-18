@@ -1,0 +1,21 @@
+# Local development dependencies for WaveFlow gateway and API services.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: waveflow-postgres
+    environment:
+      POSTGRES_USER: waveflow
+      POSTGRES_PASSWORD: waveflow
+      POSTGRES_DB: waveflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waveflow -d waveflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
