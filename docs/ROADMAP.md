@@ -1,6 +1,23 @@
 # WaveFlow — Implementation Roadmap
 
-Derived from [PRD.md](./PRD.md). Phases are sequential; each must meet exit criteria before the next begins.
+Derived from [PRD.md](./PRD.md) (v0.2, Production target). Phases are sequential; each must meet exit criteria before the next begins. **Production-limited launch** requires all [PR-1 through PR-8](./PRD.md#7-production-readiness-criteria-v1-launch-gate) gates in the PRD.
+
+---
+
+## Production Readiness Gates (v1 launch)
+
+| Gate | Phase | Primary owner | GitHub tracking |
+|------|-------|---------------|-----------------|
+| PR-1 Real Soroban RPC submission | 1 | gateway | #6 |
+| PR-2 Webhook HMAC + delivery ID dedup | 2 | gateway | #9 |
+| PR-3 Postgres audit trail complete | 2 | gateway, api | #8, #18 |
+| PR-4 Health and readiness endpoints | 3 | gateway, api | #41 |
+| PR-5 Prometheus metrics + alert thresholds | 3 | gateway, api | #21, #29 |
+| PR-6 Security checklist executed | 3 | infra | #31, #32 |
+| PR-7 Maintainer runbook published | 3 | documentation | #39 |
+| PR-8 Contract deployed and verified | 1 | contracts, infra | #4, #40 |
+
+Operational requirements (escrow alerts, attestation retry, key rotation, incident response) are defined in [PRD Section 8](./PRD.md#8-operational-requirements) and tracked in the issue backlog.
 
 ---
 
@@ -43,7 +60,7 @@ Derived from [PRD.md](./PRD.md). Phases are sequential; each must meet exit crit
 |-------|--------|
 | **Objective** | Make WaveFlow deployable and operable: authentication, rate limiting, structured observability, security headers, and deployment manifests. |
 | **Deliverables** | • API key auth middleware for admin routes<br>• Tower rate limit + request ID + tracing middleware<br>• Prometheus metrics endpoint (`/metrics`)<br>• `Dockerfile` for gateway and API<br>• `render.yaml` (or equivalent) service definitions<br>• Security checklist doc: webhook replay window, secret rotation<br>• Startup dependency checks (DB, RPC URL present) |
-| **Exit Criteria** | Unauthenticated admin calls return 401; metrics endpoint exposes request counters; Dockerfiles build multi-stage images; services bind `0.0.0.0:$PORT`; README documents production env vars. |
+| **Exit Criteria** | Unauthenticated admin calls return 401; metrics endpoint exposes request counters; Dockerfiles build multi-stage images; services bind `0.0.0.0:$PORT`; README documents production env vars; **PR-4 through PR-6 satisfied** per PRD launch gate table. |
 | **Estimated complexity** | **Medium** |
 
 ---
