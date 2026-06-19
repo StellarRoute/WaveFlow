@@ -1,4 +1,4 @@
-# Initial Postgres schema for WaveFlow programs, contributors, payouts, and webhook audit.
+-- Initial Postgres schema for WaveFlow programs, contributors, payouts, and webhook audit.
 -- WaveFlow migration 001: core tables
 
 CREATE TABLE IF NOT EXISTS programs (

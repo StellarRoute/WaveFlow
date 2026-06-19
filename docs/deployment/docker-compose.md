@@ -4,12 +4,21 @@ File: `docker-compose.yml`
 
 ## Purpose
 
-Provides local Postgres for API and gateway development. Rust binaries run on the host via `cargo run`.
+Provides a local WaveFlow stack with Postgres, the GitHub webhook gateway, and the REST API.
 
 ## Start
 
 ```bash
 docker-compose up -d
+```
+
+The gateway is exposed at `http://localhost:8080`, and the API is exposed at `http://localhost:8081`.
+
+Health checks:
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8081/health
 ```
 
 ## Connection string
@@ -24,11 +33,23 @@ Host port `5433` avoids conflicts with other local Postgres instances on 5432.
 
 ## Services
 
-Typically a single `postgres` service with volume for data persistence. Check `docker-compose.yml` for the current image tag and credentials.
+| Service | Purpose | Host port |
+|---------|---------|-----------|
+| `postgres` | Local Postgres database with persisted volume | `5433` |
+| `waveflow-gateway` | GitHub webhook gateway | `8080` |
+| `waveflow-api` | REST API | `8081` |
 
-## With Rust services
+The Rust services load `.env`, override `DATABASE_URL` for the compose network, wait for a healthy Postgres container, and run SQLx migrations during startup.
 
-Compose does not start gateway/API containers by default. Use Render Dockerfiles (`Dockerfile.gateway`, `Dockerfile.api`) as reference for production image builds.
+## Host-based Rust services
+
+For faster edit-compile cycles, start only Postgres and run the services on the host:
+
+```bash
+docker-compose up -d postgres
+cargo run -p waveflow-gateway
+cargo run -p waveflow-api
+```
 
 ## Stop and reset
 
