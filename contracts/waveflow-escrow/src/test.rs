@@ -116,3 +116,38 @@ fn invalid_repo_is_rejected() {
     let err = client.try_create_program(&maintainer, &bad_repo, &10, &None);
     assert!(err.is_err());
 }
+
+#[test]
+fn withdraw_remaining_returns_escrow_to_maintainer() {
+    let env = Env::default();
+    let (contract_id, _, maintainer, contributor_wallet, token_contract) = setup(&env);
+    let client = WaveFlowEscrowClient::new(&env, &contract_id);
+    let token_client = token::Client::new(&env, &token_contract);
+
+    let repo = Symbol::new(&env, "org/repo");
+    let program_id = client.create_program(&maintainer, &repo, &10, &None);
+    client.fund(&program_id, &maintainer, &500);
+    client.pause(&program_id, &maintainer);
+
+    let withdrawn = client.withdraw_remaining(&program_id, &maintainer);
+    assert_eq!(withdrawn, 500);
+    assert_eq!(token_client.balance(&maintainer), 9_500);
+    let _ = contributor_wallet;
+}
+
+#[test]
+fn insufficient_escrow_rejects_payout() {
+    let env = Env::default();
+    let (contract_id, gateway, maintainer, contributor_wallet, _) = setup(&env);
+    let client = WaveFlowEscrowClient::new(&env, &contract_id);
+
+    let repo = Symbol::new(&env, "org/repo");
+    let program_id = client.create_program(&maintainer, &repo, &100, &None);
+    client.fund(&program_id, &maintainer, &50);
+
+    let username = Symbol::new(&env, "eve");
+    client.register_contributor(&program_id, &maintainer, &username, &contributor_wallet);
+
+    let err = client.try_record_merge(&gateway, &program_id, &username, &1, &1);
+    assert!(err.is_err());
+}
