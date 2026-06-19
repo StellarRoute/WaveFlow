@@ -57,7 +57,7 @@ pub struct MergeAttestation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use waveflow_shared::{GitHubPullRequest, GitHubRef, GitHubRepository, GitHubUser};
+    use waveflow_shared::types::{GitHubPullRequest, GitHubRef, GitHubRepository, GitHubUser};
 
     fn sample_event(merged: bool, base_ref: &str, default_branch: &str) -> GitHubPullRequestEvent {
         GitHubPullRequestEvent {
@@ -103,8 +103,22 @@ mod tests {
     }
 
     #[test]
-    fn parse_merge_event_rejects_non_default_branch() {
-        let err = parse_merge_event(&sample_event(true, "develop", "main")).unwrap_err();
+    fn verify_github_signature_rejects_missing_sha256_prefix() {
+        let err = verify_github_signature("secret", b"{}", "deadbeef").unwrap_err();
+        assert!(matches!(err, WaveFlowError::Webhook(_)));
+    }
+
+    #[test]
+    fn parse_merge_event_rejects_closed_but_unmerged() {
+        let err = parse_merge_event(&sample_event(false, "main", "main")).unwrap_err();
+        assert!(matches!(err, WaveFlowError::Validation(_)));
+    }
+
+    #[test]
+    fn parse_merge_event_rejects_non_closed_action() {
+        let mut event = sample_event(true, "main", "main");
+        event.action = "opened".into();
+        let err = parse_merge_event(&event).unwrap_err();
         assert!(matches!(err, WaveFlowError::Validation(_)));
     }
 }
