@@ -34,6 +34,16 @@ GitHub PR merge → Gateway (webhook + HMAC) → Soroban Escrow → Contributor 
 ```bash
 cp .env.example .env
 docker-compose up -d
+curl http://localhost:8080/health
+curl http://localhost:8081/health
+```
+
+The compose stack starts Postgres, the GitHub webhook gateway on port `8080`, and the REST API on port `8081`. Both Rust services run migrations during startup.
+
+For host-based development, start only the database and run the services with Cargo:
+
+```bash
+docker-compose up -d postgres
 cargo build --workspace
 cargo test --workspace
 ```
