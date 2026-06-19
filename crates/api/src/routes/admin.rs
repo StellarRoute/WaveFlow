@@ -18,6 +18,7 @@ pub fn admin_router(state: AppState) -> Router {
         .route("/api/v1/admin/programs", post(create_program))
         .route("/api/v1/admin/programs/:id/pause", post(pause_program))
         .route("/api/v1/admin/programs/:id/resume", post(resume_program))
+        .route("/api/v1/admin/programs/:id/ratio", post(update_ratio))
         .route("/api/v1/admin/contributors", post(register_contributor))
         .with_state(state)
 }
@@ -45,6 +46,9 @@ async fn create_program(
     }
     if body.reward_per_point <= 0 {
         return Err(WaveFlowError::Validation("reward_per_point must be positive".into()).into());
+    }
+    if !validate_stellar_address(&body.maintainer_address) {
+        return Err(WaveFlowError::Validation("invalid maintainer stellar address".into()).into());
     }
 
     let id = Uuid::new_v4();
@@ -99,6 +103,37 @@ async fn resume_program(
     }
 
     Ok((StatusCode::OK, Json(serde_json::json!({ "id": id, "status": "active" }))))
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateRatioRequest {
+    reward_per_point: i64,
+}
+
+async fn update_ratio(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<UpdateRatioRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    if body.reward_per_point <= 0 {
+        return Err(WaveFlowError::Validation("reward_per_point must be positive".into()).into());
+    }
+
+    let updated = sqlx::query("UPDATE programs SET reward_per_point = $1 WHERE id = $2")
+        .bind(body.reward_per_point)
+        .bind(id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    if updated.rows_affected() == 0 {
+        return Err(WaveFlowError::NotFound(format!("program {id} not found")).into());
+    }
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({ "id": id, "reward_per_point": body.reward_per_point })),
+    ))
 }
 
 #[derive(Debug, Deserialize)]
