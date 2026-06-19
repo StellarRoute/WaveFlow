@@ -14,7 +14,7 @@ Loaded by `crates/shared/src/config.rs` via `AppConfig::from_env()`.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SOROBAN_RPC_URL` | `https://soroban-testnet.stellar.org` | RPC endpoint |
-| `NETWORK_PASSPHRASE` | Testnet passphrase | Network identifier |
+| `NETWORK_PASSPHRASE` | `Test SDF Network ; September 2015` | Network identifier. Use `Public Global Stellar Network ; September 2015` with mainnet RPC. |
 | `ESCROW_CONTRACT_ID` | none | Deployed contract ID (required for live attestation) |
 | `GATEWAY_SECRET_KEY` | none | Stellar secret key for gateway signing |
 

@@ -56,6 +56,17 @@ cargo run -p waveflow-api
 - [Implementation Roadmap](docs/ROADMAP.md)
 - [Core loop walkthrough](docs/core-loop.md)
 
+## Production configuration
+
+Set `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` together when deploying the gateway:
+
+| Network | `SOROBAN_RPC_URL` | `NETWORK_PASSPHRASE` |
+|---------|-------------------|----------------------|
+| Testnet | `https://soroban-testnet.stellar.org` | `Test SDF Network ; September 2015` |
+| Mainnet | Your mainnet Soroban RPC endpoint | `Public Global Stellar Network ; September 2015` |
+
+The gateway validates obvious testnet/mainnet mismatches at startup so production does not silently sign transactions for the wrong Stellar network.
+
 ## License
 
 MIT

@@ -33,7 +33,14 @@ Both services receive `DATABASE_URL` from the Render Postgres attachment.
 
 ## Soroban
 
-Default blueprint sets `SOROBAN_RPC_URL` to testnet. Override for mainnet when ready.
+Default blueprint sets `SOROBAN_RPC_URL` and `NETWORK_PASSPHRASE` to testnet:
+
+| Network | `SOROBAN_RPC_URL` | `NETWORK_PASSPHRASE` |
+|---------|-------------------|----------------------|
+| Testnet | `https://soroban-testnet.stellar.org` | `Test SDF Network ; September 2015` |
+| Mainnet | Your mainnet Soroban RPC endpoint | `Public Global Stellar Network ; September 2015` |
+
+Override both values together when moving the gateway to mainnet. The gateway rejects obvious testnet/mainnet RPC and passphrase mismatches during startup.
 
 ## Local parity
 
