@@ -1,6 +1,6 @@
 // Admin-only routes for program registration (protected by API key middleware).
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::post,
@@ -8,7 +8,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use waveflow_shared::{validate_github_repo, WaveFlowError};
+use waveflow_shared::{validate_github_repo, validate_stellar_address, WaveFlowError};
 
 use crate::routes::ApiError;
 use crate::state::AppState;
@@ -16,6 +16,8 @@ use crate::state::AppState;
 pub fn admin_router(state: AppState) -> Router {
     Router::new()
         .route("/api/v1/admin/programs", post(create_program))
+        .route("/api/v1/admin/programs/:id/pause", post(pause_program))
+        .route("/api/v1/admin/programs/:id/resume", post(resume_program))
         .route("/api/v1/admin/contributors", post(register_contributor))
         .with_state(state)
 }
@@ -65,6 +67,40 @@ async fn create_program(
     Ok((StatusCode::CREATED, Json(CreateProgramResponse { id })))
 }
 
+async fn pause_program(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, ApiError> {
+    let updated = sqlx::query("UPDATE programs SET status = 'paused' WHERE id = $1 AND status = 'active'")
+        .bind(id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    if updated.rows_affected() == 0 {
+        return Err(WaveFlowError::NotFound(format!("active program {id} not found")).into());
+    }
+
+    Ok((StatusCode::OK, Json(serde_json::json!({ "id": id, "status": "paused" }))))
+}
+
+async fn resume_program(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, ApiError> {
+    let updated = sqlx::query("UPDATE programs SET status = 'active' WHERE id = $1 AND status = 'paused'")
+        .bind(id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    if updated.rows_affected() == 0 {
+        return Err(WaveFlowError::NotFound(format!("paused program {id} not found")).into());
+    }
+
+    Ok((StatusCode::OK, Json(serde_json::json!({ "id": id, "status": "active" }))))
+}
+
 #[derive(Debug, Deserialize)]
 struct RegisterContributorRequest {
     program_id: Uuid,
@@ -84,6 +120,9 @@ async fn register_contributor(
 ) -> Result<impl IntoResponse, ApiError> {
     if body.github_username.is_empty() || body.stellar_address.is_empty() {
         return Err(WaveFlowError::Validation("username and address required".into()).into());
+    }
+    if !validate_stellar_address(&body.stellar_address) {
+        return Err(WaveFlowError::Validation("invalid stellar public key".into()).into());
     }
 
     sqlx::query(
