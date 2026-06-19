@@ -1,6 +1,7 @@
 // Gateway service entrypoint: tracing, metrics, DB pool, and HTTP server.
 mod attestation;
 mod routes;
+mod startup;
 mod state;
 mod webhook;
 
@@ -15,6 +16,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let config = waveflow_shared::AppConfig::from_env()?;
+    startup::validate_gateway_config(&config)?;
     let db = sqlx::PgPool::connect(&config.database_url).await?;
     sqlx::migrate!("../../migrations").run(&db).await?;
 
@@ -23,12 +25,13 @@ async fn main() -> anyhow::Result<()> {
         .expect("metrics recorder");
 
     let state = state::AppState::new(config.clone(), db);
-    let app = routes::router(state).merge(
-        axum::Router::new().route(
+    let app = routes::router(state)
+        .merge(
+  axum::Router::new().route(
             "/metrics",
             axum::routing::get(move || async move { metrics_handle.render() }),
-        ),
-    );
+        ))
+        .layer(tower_http::limit::RequestBodyLimitLayer::new(256 * 1024));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.gateway_port));
     tracing::info!(%addr, "waveflow-gateway listening");
