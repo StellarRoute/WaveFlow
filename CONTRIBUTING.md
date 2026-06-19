@@ -1,17 +1,37 @@
 # Contributing to WaveFlow
 
-WaveFlow is a Stellar-native bounty escrow project. Contributions should stay aligned with the PRD, roadmap, and the merge-to-payout core loop: GitHub merge events are verified by the gateway and converted into Soroban escrow payouts.
+WaveFlow automates bounty escrow on Stellar/Soroban with GitHub merge-triggered payouts. Contributions should stay aligned with the PRD, roadmap, and the merge-to-payout core loop.
 
-## Start with an issue
+## Before you start
+
+1. Read [docs/PRD.md](docs/PRD.md) for product scope.
+2. Read [docs/ROADMAP.md](docs/ROADMAP.md) for phase planning.
+3. Walk through [docs/core-loop.md](docs/core-loop.md) for the merge-to-payout path.
+4. Check [AGENTS.md](AGENTS.md) for repository-specific agent guidance.
 
 Pick an open issue before opening a pull request. Prefer issues with a clear scope, acceptance criteria, and a complexity label. If the scope is unclear, ask for clarification on the issue before starting work.
 
-Useful planning references:
+## Development setup
 
-- [Product Requirements](docs/PRD.md)
-- [Implementation Roadmap](docs/ROADMAP.md)
-- [Agent guidance](AGENTS.md)
-- [Core loop walkthrough](docs/core-loop.md)
+```bash
+git checkout main && git pull
+git checkout -b feature/your-change
+cp .env.example .env
+docker-compose up -d
+cargo build --workspace
+cargo test --workspace
+```
+
+## Workspace layout
+
+| Crate / path | Role |
+|--------------|------|
+| `contracts/waveflow-escrow` | Soroban escrow contract |
+| `crates/gateway` | GitHub webhooks and chain attestation |
+| `crates/api` | REST API for programs and payouts |
+| `crates/shared` | Config, types, errors |
+| `migrations/` | Postgres schema and migrations |
+| `docs/` | Product, architecture, operations, and setup documentation |
 
 ## Issue label workflow
 
@@ -34,7 +54,7 @@ Maintainers may also apply program and planning labels:
 - Feature labels such as `F1` through `F7` map issues to the PRD feature sections.
 - Launch-gate labels such as `PR-1` through `PR-8` map issues to the production readiness gates in the roadmap.
 
-When an issue is part of the Wave workflow, the maintainer-assigned complexity label is the source of truth for point mapping. Do not add Drips API integration or external payout dependencies to satisfy a Wave-labeled issue.
+When an issue is part of the Wave workflow, the maintainer-assigned complexity label is the source of truth for point mapping.
 
 ## Branch and pull request conventions
 
@@ -52,6 +72,7 @@ Examples:
 
 Pull requests should:
 
+- Branch from `main` and open PRs against `main`.
 - Link the issue with `Fixes #<issue-number>` when the PR fully resolves it.
 - Keep the change focused on one issue or one feature slice.
 - Include the commands you ran under a validation or testing section.
@@ -60,7 +81,7 @@ Pull requests should:
 
 ## Stellar-native scope
 
-WaveFlow is an independent Stellar/Soroban implementation of Wave-style mechanics. The PRD's non-goals keep WaveFlow separate from unrelated StellarRoute products, and OQ6 records that the project has no Drips API dependency. The expected flow is:
+WaveFlow is an independent Stellar/Soroban implementation of Wave-style bounty mechanics. The expected flow is:
 
 1. Maintainers lock Stellar assets in Soroban escrow.
 2. Contributors register Stellar wallets.
@@ -87,3 +108,7 @@ cargo test -p waveflow-gateway verify_github_signature
 ```
 
 Document any command you could not run and why.
+
+## Security
+
+Never commit real webhook secrets or Stellar secret keys. See [docs/security-checklist.md](docs/security-checklist.md).
