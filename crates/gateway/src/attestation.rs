@@ -217,6 +217,34 @@ pub async fn persist_payout(
     Ok(payout_id)
 }
 
+/// Reserve a GitHub delivery id before chain submission to block concurrent double-submit.
+pub async fn claim_delivery_id(
+    pool: &sqlx::PgPool,
+    delivery_id: &str,
+    event_type: &str,
+) -> WaveFlowResult<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO webhook_events (id, delivery_id, event_type, github_repo, payload, status)
+        VALUES ($1, $2, $3, 'pending', '{}'::jsonb, 'processing')
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(delivery_id)
+    .bind(event_type)
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        if let sqlx::Error::Database(db_err) = &e {
+            if db_err.constraint().is_some() {
+                return WaveFlowError::Conflict(format!("duplicate delivery {delivery_id}"));
+            }
+        }
+        WaveFlowError::Database(e.to_string())
+    })?;
+    Ok(())
+}
+
 pub async fn persist_webhook_event(
     pool: &sqlx::PgPool,
     delivery_id: Option<&str>,
