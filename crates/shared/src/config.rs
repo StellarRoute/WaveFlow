@@ -27,8 +27,8 @@ impl AppConfig {
             .map_err(|_| WaveFlowError::Config("GITHUB_WEBHOOK_SECRET is required".into()))?;
         let soroban_rpc_url = env::var("SOROBAN_RPC_URL")
             .unwrap_or_else(|_| "https://soroban-testnet.stellar.org".into());
-        let network_passphrase = env::var("NETWORK_PASSPHRASE")
-            .unwrap_or_else(|_| TESTNET_NETWORK_PASSPHRASE.into());
+        let network_passphrase =
+            env::var("NETWORK_PASSPHRASE").unwrap_or_else(|_| TESTNET_NETWORK_PASSPHRASE.into());
         validate_rpc_network_pair(&soroban_rpc_url, &network_passphrase)?;
         let escrow_contract_id = env::var("ESCROW_CONTRACT_ID").ok();
         let gateway_secret_key = env::var("GATEWAY_SECRET_KEY").ok();
@@ -63,7 +63,10 @@ impl AppConfig {
     }
 }
 
-fn validate_rpc_network_pair(soroban_rpc_url: &str, network_passphrase: &str) -> WaveFlowResult<()> {
+fn validate_rpc_network_pair(
+    soroban_rpc_url: &str,
+    network_passphrase: &str,
+) -> WaveFlowResult<()> {
     let lower_url = soroban_rpc_url.to_ascii_lowercase();
 
     if lower_url.contains("mainnet") && network_passphrase != PUBLIC_NETWORK_PASSPHRASE {
