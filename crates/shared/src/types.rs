@@ -107,6 +107,13 @@ pub fn validate_github_repo(repo: &str) -> bool {
     parts.len() == 2 && parts.iter().all(|p| !p.is_empty() && !p.contains(' '))
 }
 
+/// Validates Stellar account public key format (G + 55 base32 chars).
+pub fn validate_stellar_address(address: &str) -> bool {
+    address.len() == 56
+        && address.starts_with('G')
+        && address.chars().all(|c| matches!(c, 'A'..='Z' | '2'..='7'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,5 +123,13 @@ mod tests {
         assert!(validate_github_repo("StellarRoute/WaveFlow"));
         assert!(!validate_github_repo("invalid"));
         assert!(!validate_github_repo("owner/"));
+    }
+
+    #[test]
+    fn validates_stellar_public_key() {
+        let valid = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+        assert!(validate_stellar_address(valid));
+        assert!(!validate_stellar_address("not-an-address"));
+        assert!(!validate_stellar_address("MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"));
     }
 }

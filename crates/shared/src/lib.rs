@@ -7,5 +7,5 @@ pub use config::AppConfig;
 pub use error::{WaveFlowError, WaveFlowResult};
 pub use types::{
     AttestationRequest, ContributorRecord, GitHubPullRequestEvent, PayoutRecord, ProgramRecord,
-    ProgramStatus,
+    ProgramStatus, validate_stellar_address,
 };
