@@ -66,7 +66,17 @@ async fn create_program(
     .bind(body.milestone_cap)
     .execute(&state.db)
     .await
-    .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+    .map_err(|e| {
+        if let sqlx::Error::Database(db_err) = &e {
+            if db_err.constraint().is_some() {
+                return WaveFlowError::Conflict(format!(
+                    "program already exists for repo {}",
+                    body.github_repo
+                ));
+            }
+        }
+        WaveFlowError::Database(e.to_string())
+    })?;
 
     Ok((StatusCode::CREATED, Json(CreateProgramResponse { id })))
 }
@@ -158,6 +168,17 @@ async fn register_contributor(
     }
     if !validate_stellar_address(&body.stellar_address) {
         return Err(WaveFlowError::Validation("invalid stellar public key".into()).into());
+    }
+
+    let program_exists: Option<(Uuid,)> =
+        sqlx::query_as("SELECT id FROM programs WHERE id = $1")
+            .bind(body.program_id)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    if program_exists.is_none() {
+        return Err(WaveFlowError::NotFound(format!("program {} not found", body.program_id)).into());
     }
 
     sqlx::query(
