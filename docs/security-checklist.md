@@ -18,6 +18,7 @@
 - [ ] Configure non-default `API_ADMIN_KEYS`
 - [ ] Terminate TLS at load balancer
 - [ ] Rate-limit public endpoints
+- [x] Send `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and frame-ancestor CSP headers on API responses
 
 ## Contract operations
 
