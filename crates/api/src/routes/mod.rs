@@ -18,6 +18,7 @@ use crate::state::AppState;
 pub fn public_router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         .route("/api/v1/programs", get(list_programs))
         .route("/api/v1/programs/:id", get(get_program))
         .route("/api/v1/programs/:id/payouts", get(list_payouts))
@@ -40,6 +41,28 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
         Json(json!({
             "service": "waveflow-api",
             "database": db_ok,
+        })),
+    )
+}
+
+async fn ready(State(state): State<AppState>) -> impl IntoResponse {
+    let db_ok = sqlx::query("SELECT 1")
+        .execute(&state.db)
+        .await
+        .is_ok();
+    let ready = db_ok && !state.config.admin_api_key.is_empty();
+    let status = if ready {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (
+        status,
+        Json(json!({
+            "service": "waveflow-api",
+            "ready": ready,
+            "database": db_ok,
+            "admin_key_configured": !state.config.admin_api_key.is_empty(),
         })),
     )
 }
