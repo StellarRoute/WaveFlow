@@ -44,6 +44,7 @@ async fn main() -> anyhow::Result<()> {
             ),
         )
         .layer(RequestBodyLimitLayer::new(1024 * 1024))
+        .layer(axum::middleware::from_fn(middleware::security_headers))
         .layer(TraceLayer::new_for_http());
 
     let port = std::env::var("PORT")

@@ -11,7 +11,7 @@ use axum::{
 use metrics::counter;
 use serde_json::json;
 use uuid::Uuid;
-use waveflow_shared::{ContributorRecord, PayoutRecord, ProgramRecord, ProgramStatus, WaveFlowError, WaveFlowResult};
+use waveflow_shared::{ContributorRecord, PayoutRecord, ProgramRecord, ProgramStatus, WaveFlowError};
 
 use crate::state::AppState;
 
