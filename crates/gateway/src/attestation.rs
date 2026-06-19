@@ -53,6 +53,15 @@ pub async fn payout_exists(
     program_id: Uuid,
     pr_number: u64,
 ) -> WaveFlowResult<bool> {
+    Ok(fetch_payout_id(pool, program_id, pr_number).await?.is_some())
+}
+
+/// Returns existing payout id when a PR was already processed.
+pub async fn fetch_payout_id(
+    pool: &sqlx::PgPool,
+    program_id: Uuid,
+    pr_number: u64,
+) -> WaveFlowResult<Option<Uuid>> {
     let row: Option<(Uuid,)> =
         sqlx::query_as("SELECT id FROM payouts WHERE program_id = $1 AND pr_number = $2")
             .bind(program_id)
@@ -60,6 +69,18 @@ pub async fn payout_exists(
             .fetch_optional(pool)
             .await
             .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+    Ok(row.map(|(id,)| id))
+}
+
+/// Returns true when GitHub delivery id was already recorded.
+pub async fn delivery_id_seen(pool: &sqlx::PgPool, delivery_id: &str) -> WaveFlowResult<bool> {
+    let row: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT id FROM webhook_events WHERE delivery_id = $1 LIMIT 1",
+    )
+    .bind(delivery_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| WaveFlowError::Database(e.to_string()))?;
     Ok(row.is_some())
 }
 
