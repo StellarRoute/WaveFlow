@@ -13,8 +13,9 @@ use tracing::{error, info, warn};
 use waveflow_shared::{GitHubPullRequestEvent, WaveFlowError, WaveFlowResult};
 
 use crate::attestation::{
-    build_attestation, load_reward_per_point, persist_payout, persist_webhook_event, payout_exists,
-    resolve_contributor_address, resolve_program_id, submit_attestation,
+    build_attestation, delivery_id_seen, fetch_payout_id, load_reward_per_point, persist_payout,
+    persist_webhook_event, payout_exists, resolve_contributor_address, resolve_program_id,
+    submit_attestation,
 };
 use crate::state::AppState;
 use crate::webhook::{parse_merge_event, verify_github_signature};
@@ -22,8 +23,34 @@ use crate::webhook::{parse_merge_event, verify_github_signature};
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         .route("/webhooks/github", post(github_webhook))
         .with_state(state)
+}
+
+async fn ready(State(state): State<AppState>) -> impl IntoResponse {
+    let db_ok = sqlx::query("SELECT 1")
+        .execute(&state.db)
+        .await
+        .is_ok();
+    let config_ok = !state.config.github_webhook_secret.is_empty();
+
+    let ready = db_ok && config_ok;
+    let status = if ready {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+
+    (
+        status,
+        Json(json!({
+            "service": "waveflow-gateway",
+            "ready": ready,
+            "database": db_ok,
+            "webhook_secret_configured": config_ok,
+        })),
+    )
 }
 
 async fn health(State(state): State<AppState>) -> impl IntoResponse {
@@ -56,6 +83,22 @@ async fn github_webhook(
 
     if let Err(err) = verify_github_signature(&state.config.github_webhook_secret, &body, signature) {
         counter!("waveflow_gateway_webhook_rejected_total").increment(1);
+        let _ = persist_webhook_event(
+            &state.db,
+            headers
+                .get("x-github-delivery")
+                .and_then(|v| v.to_str().ok()),
+            headers
+                .get("x-github-event")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("unknown"),
+            "unknown",
+            None,
+            serde_json::json!({}),
+            "rejected",
+            Some("invalid webhook signature"),
+        )
+        .await;
         return map_error(err);
     }
 
@@ -69,6 +112,16 @@ async fn github_webhook(
         .get("x-github-delivery")
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
+
+    if let Some(ref delivery) = delivery_id {
+        if delivery_id_seen(&state.db, delivery).await.unwrap_or(false) {
+            return (
+                StatusCode::OK,
+                Json(json!({ "status": "duplicate_delivery", "delivery_id": delivery })),
+            )
+                .into_response();
+        }
+    }
 
     let payload: serde_json::Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
@@ -132,14 +185,32 @@ async fn process_merge(
         resolve_program_id(&state.db, &merge.github_repo).await?;
 
     if payout_exists(&state.db, program_uuid, merge.pr_number).await? {
-        return Err(WaveFlowError::Conflict(format!(
-            "PR {} already paid",
-            merge.pr_number
-        )));
+        let existing = fetch_payout_id(&state.db, program_uuid, merge.pr_number).await?;
+        return Ok(json!({
+            "status": "already_processed",
+            "payout_id": existing,
+            "program_id": program_uuid,
+            "pr_number": merge.pr_number,
+        }));
     }
 
-    let stellar_address =
-        resolve_contributor_address(&state.db, program_uuid, &merge.github_username).await?;
+    let stellar_address = match resolve_contributor_address(
+        &state.db,
+        program_uuid,
+        &merge.github_username,
+    )
+    .await
+    {
+        Ok(addr) => addr,
+        Err(WaveFlowError::NotFound(_)) => {
+            counter!("waveflow_gateway_contributor_not_found_total").increment(1);
+            return Err(WaveFlowError::NotFound(format!(
+                "contributor {} not registered for program {}",
+                merge.github_username, program_uuid
+            )));
+        }
+        Err(err) => return Err(err),
+    };
 
     let attestation = build_attestation(on_chain_program_id, &merge);
     let tx_hash = submit_attestation(
