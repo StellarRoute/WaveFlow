@@ -13,7 +13,7 @@ use tracing::{error, info, warn};
 use waveflow_shared::{GitHubPullRequestEvent, WaveFlowError, WaveFlowResult};
 
 use crate::attestation::{
-    build_attestation, delivery_id_seen, fetch_payout_id, increment_milestone_spent,
+    build_attestation, claim_delivery_id, delivery_id_seen, fetch_payout_id, increment_milestone_spent,
     load_program_status, load_reward_per_point, persist_payout, persist_webhook_event,
     payout_exists, resolve_contributor_address, resolve_program_id, submit_attestation,
 };
@@ -83,6 +83,9 @@ async fn github_webhook(
 
     if let Err(err) = verify_github_signature(&state.config.github_webhook_secret, &body, signature) {
         counter!("waveflow_gateway_webhook_rejected_total").increment(1);
+        let raw_payload: serde_json::Value = serde_json::from_slice(&body).unwrap_or_else(|_| {
+            serde_json::json!({ "raw": String::from_utf8_lossy(&body) })
+        });
         let _ = persist_webhook_event(
             &state.db,
             headers
@@ -94,7 +97,7 @@ async fn github_webhook(
                 .unwrap_or("unknown"),
             "unknown",
             None,
-            serde_json::json!({}),
+            raw_payload,
             "rejected",
             Some("invalid webhook signature"),
         )
@@ -120,6 +123,10 @@ async fn github_webhook(
                 Json(json!({ "status": "duplicate_delivery", "delivery_id": delivery })),
             )
                 .into_response();
+        }
+        if let Err(err) = claim_delivery_id(&state.db, delivery, &event_type).await {
+            error!(error = %err, "failed to claim delivery id");
+            return map_error(err);
         }
     }
 
@@ -152,7 +159,7 @@ async fn github_webhook(
         }
     };
 
-    match process_merge(&state, &pr_event, payload, delivery_id.as_deref()).await {
+    match process_merge(&state, &pr_event, payload.clone(), delivery_id.as_deref()).await {
         Ok(response) => {
             counter!("waveflow_gateway_payout_success_total").increment(1);
             (StatusCode::OK, Json(response)).into_response()
@@ -160,6 +167,24 @@ async fn github_webhook(
         Err(err) => {
             if matches!(err, WaveFlowError::Validation(_)) {
                 counter!("waveflow_gateway_webhook_ignored_total").increment(1);
+                let repo = payload
+                    .get("repository")
+                    .and_then(|r| r.get("full_name"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let pr_number = payload.get("number").and_then(|v| v.as_u64());
+                let _ = persist_webhook_event(
+                    &state.db,
+                    delivery_id.as_deref(),
+                    &event_type,
+                    &repo,
+                    pr_number,
+                    payload.clone(),
+                    "ignored",
+                    Some(&err.to_string()),
+                )
+                .await;
                 (
                     StatusCode::OK,
                     Json(json!({ "status": "ignored", "reason": err.to_string() })),
@@ -167,6 +192,24 @@ async fn github_webhook(
                     .into_response()
             } else {
                 counter!("waveflow_gateway_webhook_failed_total").increment(1);
+                let repo = payload
+                    .get("repository")
+                    .and_then(|r| r.get("full_name"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let pr_number = payload.get("number").and_then(|v| v.as_u64());
+                let _ = persist_webhook_event(
+                    &state.db,
+                    delivery_id.as_deref(),
+                    &event_type,
+                    &repo,
+                    pr_number,
+                    payload,
+                    "failed",
+                    Some(&err.to_string()),
+                )
+                .await;
                 error!(error = %err, "webhook processing failed");
                 map_error(err)
             }
