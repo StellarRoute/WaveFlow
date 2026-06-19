@@ -11,7 +11,7 @@ use axum::{
 use metrics::counter;
 use serde_json::json;
 use uuid::Uuid;
-use waveflow_shared::{PayoutRecord, ProgramRecord, ProgramStatus, WaveFlowError, WaveFlowResult};
+use waveflow_shared::{ContributorRecord, PayoutRecord, ProgramRecord, ProgramStatus, WaveFlowError, WaveFlowResult};
 
 use crate::state::AppState;
 
@@ -22,6 +22,7 @@ pub fn public_router(state: AppState) -> Router {
         .route("/api/v1/programs", get(list_programs))
         .route("/api/v1/programs/:id", get(get_program))
         .route("/api/v1/programs/:id/payouts", get(list_payouts))
+        .route("/api/v1/programs/:id/contributors", get(list_contributors))
         .with_state(state)
 }
 
@@ -50,7 +51,7 @@ async fn ready(State(state): State<AppState>) -> impl IntoResponse {
         .execute(&state.db)
         .await
         .is_ok();
-    let ready = db_ok && !state.config.admin_api_key.is_empty();
+    let ready = db_ok && !state.config.api_admin_keys.is_empty();
     let status = if ready {
         StatusCode::OK
     } else {
@@ -62,7 +63,7 @@ async fn ready(State(state): State<AppState>) -> impl IntoResponse {
             "service": "waveflow-api",
             "ready": ready,
             "database": db_ok,
-            "admin_key_configured": !state.config.admin_api_key.is_empty(),
+            "admin_key_configured": !state.config.api_admin_keys.is_empty(),
         })),
     )
 }
@@ -126,6 +127,55 @@ async fn list_payouts(
     Ok(Json(rows.into_iter().map(PayoutRow::into_record).collect()))
 }
 
+async fn list_contributors(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<ContributorRecord>>, ApiError> {
+    let exists: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM programs WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    if exists.is_none() {
+        return Err(WaveFlowError::NotFound(format!("program {id} not found")).into());
+    }
+
+    let rows = sqlx::query_as::<_, ContributorRow>(
+        r#"
+        SELECT program_id, github_username, stellar_address, registered_at
+        FROM contributors
+        WHERE program_id = $1
+        ORDER BY registered_at ASC
+        "#,
+    )
+    .bind(id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    Ok(Json(rows.into_iter().map(ContributorRow::into_record).collect()))
+}
+
+#[derive(sqlx::FromRow)]
+struct ContributorRow {
+    program_id: Uuid,
+    github_username: String,
+    stellar_address: String,
+    registered_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl ContributorRow {
+    fn into_record(self) -> ContributorRecord {
+        ContributorRecord {
+            program_id: self.program_id,
+            github_username: self.github_username,
+            stellar_address: self.stellar_address,
+            registered_at: self.registered_at,
+        }
+    }
+}
+
 #[derive(sqlx::FromRow)]
 struct ProgramRow {
     id: Uuid,
@@ -147,10 +197,10 @@ impl ProgramRow {
             on_chain_program_id: self.on_chain_program_id as u64,
             github_repo: self.github_repo,
             maintainer_address: self.maintainer_address,
-            reward_per_point: self.reward_per_point,
-            escrow_balance: self.escrow_balance,
-            milestone_cap: self.milestone_cap,
-            milestone_spent: self.milestone_spent,
+            reward_per_point: i128::from(self.reward_per_point),
+            escrow_balance: i128::from(self.escrow_balance),
+            milestone_cap: self.milestone_cap.map(i128::from),
+            milestone_spent: i128::from(self.milestone_spent),
             status: if self.status == "paused" {
                 ProgramStatus::Paused
             } else {
@@ -183,7 +233,7 @@ impl PayoutRow {
             github_username: self.github_username,
             stellar_address: self.stellar_address,
             points: self.points as u32,
-            amount: self.amount,
+            amount: i128::from(self.amount),
             tx_hash: self.tx_hash,
             created_at: self.created_at,
         }
