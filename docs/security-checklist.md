@@ -2,6 +2,9 @@
 
 ## Webhook ingestion
 
+- [ ] Set `WAVEFLOW_ENV=production` on deployed gateway services
+- [ ] Use a random `GITHUB_WEBHOOK_SECRET` with at least 32 characters
+- [ ] Confirm `GITHUB_WEBHOOK_SECRET` is not `change-me-to-github-webhook-secret`
 - [ ] Rotate `GITHUB_WEBHOOK_SECRET` on a defined schedule
 - [ ] Reject requests missing `X-Hub-Signature-256`
 - [ ] Persist raw webhook payloads for forensic replay

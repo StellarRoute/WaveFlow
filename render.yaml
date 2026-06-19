@@ -12,6 +12,8 @@ services:
           property: connectionString
       - key: GITHUB_WEBHOOK_SECRET
         sync: false
+      - key: WAVEFLOW_ENV
+        value: production
       - key: SOROBAN_RPC_URL
         value: https://soroban-testnet.stellar.org
       - key: ESCROW_CONTRACT_ID

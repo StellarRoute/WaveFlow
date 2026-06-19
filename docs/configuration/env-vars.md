@@ -9,6 +9,12 @@ Loaded by `crates/shared/src/config.rs` via `AppConfig::from_env()`.
 | `DATABASE_URL` | Postgres connection string for audit trail |
 | `GITHUB_WEBHOOK_SECRET` | Shared secret for HMAC verification |
 
+## Runtime mode
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WAVEFLOW_ENV` | `development` | Use `production` in production to enforce webhook secret safety checks. |
+
 ## Soroban / Stellar
 
 | Variable | Default | Description |
