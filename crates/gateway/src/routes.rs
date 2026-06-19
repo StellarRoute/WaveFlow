@@ -13,9 +13,9 @@ use tracing::{error, info, warn};
 use waveflow_shared::{GitHubPullRequestEvent, WaveFlowError, WaveFlowResult};
 
 use crate::attestation::{
-    build_attestation, delivery_id_seen, fetch_payout_id, load_reward_per_point, persist_payout,
-    persist_webhook_event, payout_exists, resolve_contributor_address, resolve_program_id,
-    submit_attestation,
+    build_attestation, delivery_id_seen, fetch_payout_id, increment_milestone_spent,
+    load_program_status, load_reward_per_point, persist_payout, persist_webhook_event,
+    payout_exists, resolve_contributor_address, resolve_program_id, submit_attestation,
 };
 use crate::state::AppState;
 use crate::webhook::{parse_merge_event, verify_github_signature};
@@ -184,6 +184,10 @@ async fn process_merge(
     let (program_uuid, on_chain_program_id) =
         resolve_program_id(&state.db, &merge.github_repo).await?;
 
+    if load_program_status(&state.db, program_uuid).await? == "paused" {
+        return Err(WaveFlowError::Validation("program is paused".into()));
+    }
+
     if payout_exists(&state.db, program_uuid, merge.pr_number).await? {
         let existing = fetch_payout_id(&state.db, program_uuid, merge.pr_number).await?;
         return Ok(json!({
@@ -232,6 +236,8 @@ async fn process_merge(
         &tx_hash,
     )
     .await?;
+
+    increment_milestone_spent(&state.db, program_uuid, amount).await?;
 
     persist_webhook_event(
         &state.db,

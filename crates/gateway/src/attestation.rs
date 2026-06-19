@@ -84,6 +84,38 @@ pub async fn delivery_id_seen(pool: &sqlx::PgPool, delivery_id: &str) -> WaveFlo
     Ok(row.is_some())
 }
 
+/// Load program status before accepting merge attestations.
+pub async fn load_program_status(
+    pool: &sqlx::PgPool,
+    program_id: Uuid,
+) -> WaveFlowResult<String> {
+    let row: Option<(String,)> = sqlx::query_as("SELECT status FROM programs WHERE id = $1")
+        .bind(program_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+
+    row.map(|(status,)| status)
+        .ok_or_else(|| WaveFlowError::NotFound(format!("program {program_id} not found")))
+}
+
+pub async fn increment_milestone_spent(
+    pool: &sqlx::PgPool,
+    program_id: Uuid,
+    amount: i128,
+) -> WaveFlowResult<()> {
+    let amount_i64 = i64::try_from(amount).map_err(|_| WaveFlowError::Internal("amount overflow".into()))?;
+    sqlx::query(
+        "UPDATE programs SET milestone_spent = milestone_spent + $1, escrow_balance = GREATEST(escrow_balance - $1, 0) WHERE id = $2",
+    )
+    .bind(amount_i64)
+    .bind(program_id)
+    .execute(pool)
+    .await
+    .map_err(|e| WaveFlowError::Database(e.to_string()))?;
+    Ok(())
+}
+
 /// Load reward_per_point for payout amount calculation before persisting audit row.
 pub async fn load_reward_per_point(
     pool: &sqlx::PgPool,
