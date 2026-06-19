@@ -52,6 +52,7 @@ cargo run -p waveflow-api
 
 ## Documentation
 
+- [Contributing Guide](CONTRIBUTING.md)
 - [Product Requirements](docs/PRD.md)
 - [Implementation Roadmap](docs/ROADMAP.md)
 - [Core loop walkthrough](docs/core-loop.md)
