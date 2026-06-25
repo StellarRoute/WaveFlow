@@ -7,10 +7,10 @@ Automated bounty escrow on Stellar/Soroban with GitHub merge-triggered payouts. 
 ## Architecture
 
 ```
-GitHub PR merge ? Gateway (webhook + HMAC) ? Soroban Escrow ? Contributor wallet
-                      ?
+GitHub PR merge → Gateway (webhook + HMAC) → Soroban Escrow → Contributor wallet
+                      ↓
                  Postgres audit trail
-                      ?
+                      ↓
                  REST API (read paths)
 ```
 
