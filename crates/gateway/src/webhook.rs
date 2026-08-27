@@ -27,6 +27,21 @@ pub fn verify_github_signature(secret: &str, body: &[u8], signature_header: &str
 }
 
 /// Returns attestation inputs when the payload is a merged PR on the default branch.
+
+/// Map GitHub PR labels to Wave complexity points.
+/// Labels follow Drips Wave convention: complexity:low=1, complexity:medium=3, complexity:high=5.
+fn label_to_points(labels: &[waveflow_shared::GitHubLabel]) -> u32 {
+    for label in labels {
+        match label.name.as_str() {
+            "complexity:high" => return 5,
+            "complexity:medium" => return 3,
+            "complexity:low" => return 2,
+            _ => continue,
+        }
+    }
+    1 // default points when no recognized complexity label
+}
+
 pub fn parse_merge_event(payload: &GitHubPullRequestEvent) -> WaveFlowResult<MergeAttestation> {
     if payload.action != "closed" {
         return Err(WaveFlowError::Validation("ignored non-closed action".into()));
@@ -42,7 +57,7 @@ pub fn parse_merge_event(payload: &GitHubPullRequestEvent) -> WaveFlowResult<Mer
         github_repo: payload.repository.full_name.clone(),
         github_username: payload.pull_request.user.login.clone(),
         pr_number: payload.number,
-        points: 1,
+        points: label_to_points(&payload.pull_request.labels),
     })
 }
 
@@ -71,6 +86,7 @@ mod tests {
                 base: GitHubRef {
                     ref_name: base_ref.into(),
                 },
+                labels: vec![],
             },
             repository: GitHubRepository {
                 full_name: "StellarRoute/WaveFlow".into(),
@@ -122,3 +138,42 @@ mod tests {
         assert!(matches!(err, WaveFlowError::Validation(_)));
     }
 }
+
+
+    #[test]
+    fn parse_merge_event_maps_complexity_labels_to_points() {
+        let mut event = sample_event(true, "main", "main");
+        event.pull_request.labels = vec![
+            waveflow_shared::GitHubLabel { name: "complexity:medium".into() },
+            waveflow_shared::GitHubLabel { name: "bug".into() },
+        ];
+        let attestation = parse_merge_event(&event).expect("merge");
+        assert_eq!(attestation.points, 3);
+    }
+
+    #[test]
+    fn parse_merge_event_defaults_points_to_1_without_label() {
+        let event = sample_event(true, "main", "main");
+        let attestation = parse_merge_event(&event).expect("merge");
+        assert_eq!(attestation.points, 1);
+    }
+
+    #[test]
+    fn parse_merge_event_maps_high_complexity() {
+        let mut event = sample_event(true, "main", "main");
+        event.pull_request.labels = vec![
+            waveflow_shared::GitHubLabel { name: "complexity:high".into() },
+        ];
+        let attestation = parse_merge_event(&event).expect("merge");
+        assert_eq!(attestation.points, 5);
+    }
+
+    #[test]
+    fn parse_merge_event_maps_low_complexity() {
+        let mut event = sample_event(true, "main", "main");
+        event.pull_request.labels = vec![
+            waveflow_shared::GitHubLabel { name: "complexity:low".into() },
+        ];
+        let attestation = parse_merge_event(&event).expect("merge");
+        assert_eq!(attestation.points, 2);
+    }
